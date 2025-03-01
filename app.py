@@ -210,11 +210,12 @@ user_states = {}
 # Lock for thread-safe updates
 state_lock = threading.Lock()
 
-# Function to query OpenAI GPT-3.5-Turbo
+# Function to query OpenAI GPT-3.5-Turbo (Updated for OpenAI 1.0.0+)
 def query_openai(customer_message: str, context: List[Dict[str, str]]) -> str:
     try:
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         messages = [{"role": "system", "content": AI_PROMPT}] + context + [{"role": "user", "content": customer_message}]
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.7,
