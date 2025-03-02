@@ -398,7 +398,7 @@ def webhook():
         response_message = generate_sales_report()
 
     # Check for payment confirmation
-    elif message_body.lower().starts with("paid"):
+    elif message_body.lower().startswith("paid"):  # Fixed typo: starts with -> startswith
         parts = message_body.split(" ", 1)
         if len(parts) > 1:
             order_details = parts[1].strip()
