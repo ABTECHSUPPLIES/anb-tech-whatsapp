@@ -479,7 +479,7 @@ def webhook():
         response_message = INSTALLMENT_PLAN
     elif any(keyword in message_body.lower() for keyword in ["picture", "pictures", "image", "images", "see", "look"]):
         response_message = PICTURE_LINK
-    # Fallback to AI
+    # Fallback to AI for all unhandled messages (ensure every message gets a response)
     else:
         response_message = query_openai(message_body, context)
 
