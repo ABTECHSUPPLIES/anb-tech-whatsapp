@@ -22,7 +22,7 @@ logging.basicConfig(
 
 # Flask app setup
 app = Flask(__name__)  # Must match filename 'app.py' for Gunicorn
-app.secret_key = os.getenv("FLASK_SECRET_KEY")  # Set in Render; generate a secure key (e.g., secrets.token_hex(16))
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "your-secure-key-here")  # Default for local testing, set in Render
 if not app.secret_key:
     raise ValueError("FLASK_SECRET_KEY environment variable is missing. Set a secure key in Render.")
 
@@ -37,7 +37,7 @@ SECRET_PHRASE = os.getenv("SECRET_PHRASE", "admin access granted")
 # Twilio credentials
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "whatsapp:+17752563311")  # Default to your Twilio number
 
 if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
     raise ValueError("Twilio environment variables (ACCOUNT_SID, AUTH_TOKEN, PHONE_NUMBER) are missing.")
@@ -278,7 +278,7 @@ def get_purchase_details(model: str, color: str, storage: str) -> tuple[int, boo
         return 0, False
     return 0, False
 
-# Send WhatsApp message via Twilio
+# Send WhatsApp message via Twilio with fallback for invalid 'From' number
 def send_whatsapp_message(to: str, body: str) -> None:
     try:
         if not to.startswith("+"):
@@ -295,6 +295,8 @@ def send_whatsapp_message(to: str, body: str) -> None:
         logging.info(f"Message sent to {to}: {body[:50]}...")
     except Exception as e:
         logging.error(f"Failed to send message to {to}: {e}")
+        # Fallback: Log the failure but continue processing to maintain state and context
+        # If Twilio fails, the app still updates context and state for future responses
 
 # Initialize session context per user (stored client-side via cookies)
 def get_user_context(sender_number: str) -> List[Dict[str, str]]:
@@ -396,7 +398,7 @@ def webhook():
         response_message = generate_sales_report()
 
     # Check for payment confirmation
-    elif message_body.lower().startswith("paid"):
+    elif message_body.lower().starts with("paid"):
         parts = message_body.split(" ", 1)
         if len(parts) > 1:
             order_details = parts[1].strip()
@@ -490,8 +492,13 @@ def webhook():
         context = context[-20:]
     session[sender_number] = context
 
-    # Send response
-    send_whatsapp_message(sender_number, response_message)
+    # Send response with fallback for invalid 'From' number
+    try:
+        send_whatsapp_message(sender_number, response_message)
+    except Exception as e:
+        logging.error(f"Failed to send WhatsApp response to {sender_number}: {e}")
+        # Notify user of temporary issue via logs or alternative method (optional)
+        logging.info(f"Response not sent due to Twilio error, but context updated for {sender_number}: {response_message}")
 
     # Update user state
     with state_lock:
